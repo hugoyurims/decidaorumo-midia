@@ -1,0 +1,49 @@
+# Publica no Instagram os posts de tools/instagram/agenda-nuvem.json, sem depender do PC.
+# O cron do GitHub atrasa ou pula horários (14 e 15/11/2026: nenhuma execução entre 19h e 21h45 de Brasília).
+# Por isso ele tenta a cada 10 min desde as 16h. A primeira execução que pegar prepara o vídeo no Instagram e
+# espera até o minuto marcado (até 5 h; repositório público = minutos do Actions sem limite). As outras ficam
+# na fila e, depois, só conferem: o script nunca publica duas vezes (qualquer post da conta desde 3 h antes do
+# horário conta como publicado). Depois das 20h continua tentando até 22h45 (repescagem).
+# Também dá para rodar à mão (Actions → Publicar no Instagram → Run workflow).
+name: Publicar no Instagram
+on:
+  schedule:
+    - cron: '*/10 19-22 * * *'
+    - cron: '*/10 23 * * *'
+    - cron: '*/15 0,1 * * *'
+  workflow_dispatch:
+    inputs:
+      agora:
+        description: 'Publicar já os pendentes, sem esperar o horário'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: publicar-instagram
+  cancel-in-progress: false
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/instagram
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Publicar
+        env:
+          JANELA_MIN: '300'
+          IG_DECIDAORUMO_TOKEN: ${{ secrets.IG_DECIDAORUMO_TOKEN }}
+          IG_DECIDAORUMO_USER: ${{ secrets.IG_DECIDAORUMO_USER }}
+          IG_DECIDAORUMO_API: facebook
+        run: node tools/instagram/publicar-nuvem.mjs ${{ inputs.agora && '--agora' || '' }}
+      - name: Registrar na agenda
+        if: always()
+        run: |
+          git config user.name "publicador-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add tools/instagram/agenda-nuvem.json
+          git diff --cached --quiet || (git commit -m "Agenda: registro da publicação" && git pull --rebase && git push)
