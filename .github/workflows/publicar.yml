@@ -17,6 +17,10 @@ on:
         description: 'Publicar já os pendentes, sem esperar o horário'
         type: boolean
         default: false
+      teste:
+        description: 'Só testar (confere arquivos e credenciais, não publica)'
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -39,7 +43,7 @@ jobs:
           IG_DECIDAORUMO_TOKEN: ${{ secrets.IG_DECIDAORUMO_TOKEN }}
           IG_DECIDAORUMO_USER: ${{ secrets.IG_DECIDAORUMO_USER }}
           IG_DECIDAORUMO_API: facebook
-        run: node tools/instagram/publicar-nuvem.mjs ${{ inputs.agora && '--agora' || '' }}
+        run: node tools/instagram/publicar-nuvem.mjs ${{ inputs.agora && '--agora' || '' }} ${{ inputs.teste && '--agora --dry-run' || '' }}
       - name: Registrar na agenda
         if: always()
         run: |
